@@ -1,6 +1,6 @@
-mod storage;
+mod memtable;
 
-use crate::storage::memtable::Memtable;
+use crate::memtable::Memtable;
 
 fn main() {
     // Create the memtable

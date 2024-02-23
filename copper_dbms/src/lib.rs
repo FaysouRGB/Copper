@@ -1,5 +1,5 @@
-mod storage;
-use crate::storage::memtable::Memtable;
+mod memtable;
+use crate::memtable::Memtable;
 
 #[cfg(test)]
 mod tests {
