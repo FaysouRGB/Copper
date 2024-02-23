@@ -1,3 +1,4 @@
+pub mod memtable;
 use std::{borrow::Borrow, f32::consts::E, fmt};
 
 pub struct Memtable {
