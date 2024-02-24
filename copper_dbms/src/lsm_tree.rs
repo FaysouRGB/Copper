@@ -1,10 +1,10 @@
 const MEMTABLE_FLUSH_THRESHOLD: usize = 1024 * 1024 * 100; // Example threshold for flushing memtable (100 MB)
-const MEMTABLE_LOAD_THRESHOLD: usize = 1024 * 1024 * 10;   // Example threshold for loading memtable (10 MB)
+const MEMTABLE_LOAD_THRESHOLD: usize = 1024 * 1024 * 10; // Example threshold for loading memtable (10 MB)
 
-use std::io::BufRead;
 use crate::memtable::Memtable;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
+use std::io::BufRead;
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
@@ -21,13 +21,9 @@ pub struct SSTable {
     pub data: BTreeMap<Vec<u8>, Vec<u8>>,
 }
 
-impl LSMTree 
-{
+impl LSMTree {
     pub fn new() -> LSMTree {
-        LSMTree {
-            memtable: Memtable::new(),
-            levels: Vec::new(),
-        }
+        LSMTree { memtable: Memtable::new(), levels: Vec::new() }
     }
 
     pub fn insert(&mut self, key: Vec<u8>, value: Vec<u8>) {
@@ -59,7 +55,6 @@ impl LSMTree
         if self.memtable.size > MEMTABLE_FLUSH_THRESHOLD {
             self.flush_memtable();
         }
-
     }
 
     pub fn flush_memtable(&mut self) {
@@ -76,9 +71,9 @@ impl LSMTree
         // Clear the memtable
         self.memtable = Memtable::new();
 
-       // clear the wal
+        // clear the wal
     }
- 
+
     pub fn load_on_disk(&mut self) -> io::Result<()> {
         // Directory containing SSTable files
         let path = Path::new("./sstables");
@@ -124,12 +119,8 @@ impl LSMTree
             let file_name = entry.file_name().into_string().unwrap();
             let parts: Vec<&str> = file_name.split("_").collect();
             if parts.len() == 2 {
-                if let (Some(level_index_str), Some(_), Some(sstable_index_str)) =
-                    (parts.get(0), parts.get(1))
-                {
-                    if let (Ok(level_index), Ok(sstable_index)) =
-                        (level_index_str.parse::<usize>(), sstable_index_str.parse::<usize>())
-                    {
+                if let (Some(level_index_str), Some(_), Some(sstable_index_str)) = (parts.get(0), parts.get(1)) {
+                    if let (Ok(level_index), Ok(sstable_index)) = (level_index_str.parse::<usize>(), sstable_index_str.parse::<usize>()) {
                         // Add SSTable to the corresponding level
                         if level_index < self.levels.len() {
                             let sstable = SSTable { data };
@@ -143,23 +134,17 @@ impl LSMTree
         Ok(())
     }
 
-
-    
-
-   pub fn compact_actual_level(&mut self) {
-       // For simplicity, let's just merge all SSTables into a single one
-        if let Some(actual_level) = self.levels.last_mut() 
-        {
+    pub fn compact_actual_level(&mut self) {
+        // For simplicity, let's just merge all SSTables into a single one
+        if let Some(actual_level) = self.levels.last_mut() {
             let mut merged_sstable = SSTable::new();
-            for sstable in actual_level.sstables.iter_mut().rev()
-            {
+            for sstable in actual_level.sstables.iter_mut().rev() {
                 merged_sstable.data.extend(sstable.data.drain());
             }
 
             actual_level.sstables.clear();
             actual_level.sstables.push(merged_sstable);
         }
-
     }
 
     pub fn save_on_disk(&mut self) -> io::Result<()> {
@@ -192,17 +177,12 @@ impl LSMTree
 
 impl Level {
     pub fn new() -> Level {
-        Level {
-            sstables: Vec::new(),
-        }
+        Level { sstables: Vec::new() }
     }
 }
 
 impl SSTable {
     pub fn new() -> SSTable {
-        SSTable {
-            data: BTreeMap::new(),
-        }
+        SSTable { data: BTreeMap::new() }
     }
 }
-
