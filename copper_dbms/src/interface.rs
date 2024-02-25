@@ -256,17 +256,17 @@ pub fn interface_loop() {
 
 pub fn help() {
     println!("Available commands:");
-
+    println!();
     println!("tables - List of all tables.");
     println!("create <name> - Create a table.");
     println!("drop <name> - Drop a table.");
     println!("save - Save the database to disk.");
     println!("flush - Flush all memtables to disk.");
-
+    println!();
     println!("insert into <table> <key> <value>: Insert a new record into a table.");
     println!("select <key> from <table>: Select a record from a table.");
     println!("delete <key> from <table>: Delete a record from a table.");
-
+    println!();
     println!("clear - Clear the screen.");
     println!("exit - Exit the program.");
     println!("help - Print this help message.");
