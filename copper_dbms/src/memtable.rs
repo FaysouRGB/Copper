@@ -1,5 +1,8 @@
 use std::{collections::BTreeMap, fmt};
 
+use crate::settings;
+
+#[derive(Default)]
 pub struct Memtable {
     pub records: BTreeMap<Vec<u8>, MemtableEntry>,
     pub size: usize,
@@ -14,8 +17,8 @@ pub struct MemtableEntry {
 
 impl MemtableEntry {
     // Create a new memtable entry.
-    pub fn new(key: Vec<u8>, value: Vec<u8>, deleted: bool) -> MemtableEntry {
-        MemtableEntry { key, value, deleted }
+    pub fn new(key: &[u8], value: &[u8], deleted: bool) -> MemtableEntry {
+        MemtableEntry { key: key.to_vec(), value: value.to_vec(), deleted }
     }
 
     // Get the size of the memtable entry.
@@ -26,37 +29,37 @@ impl MemtableEntry {
 
 impl Memtable {
     // Create a new memtable.
-    pub fn new(max_size: usize) -> Memtable {
-        Memtable { records: BTreeMap::new(), size: 0, max_size }
+    pub fn new() -> Memtable {
+        Memtable { records: BTreeMap::new(), size: 0, max_size: settings::MEMTABLE_MAX_SIZE }
     }
 
     // Insert an entry in the memtable, if already existing, then it is updated.
-    pub fn insert(&mut self, key: Vec<u8>, value: Vec<u8>, deleted: bool) {
-        let entry = MemtableEntry::new(key.clone(), value.clone(), deleted);
-
-        let old_entry = self.records.insert(key, entry);
+    pub fn insert(&mut self, key: &[u8], value: &[u8], deleted: bool) {
+        let entry = MemtableEntry::new(key, value, deleted);
+        let entry_size = entry.get_size();
+        let old_entry = self.records.insert(key.to_vec(), entry);
 
         match old_entry {
             Some(old_entry) => {
-                if old_entry.get_size() > entry.get_size() {
-                    self.size -= old_entry.get_size() - entry.get_size();
+                if old_entry.get_size() > entry_size {
+                    self.size -= old_entry.get_size() - entry_size;
                 } else {
-                    self.size += entry.get_size() - old_entry.get_size();
+                    self.size += entry_size - old_entry.get_size();
                 }
             }
-            None => self.size += entry.get_size(),
+            None => self.size += entry_size,
         }
     }
 
     // Get the value associated with the key, if it does not exists, return None.
-    pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
+    pub fn get(&self, key: &[u8]) -> Option<(bool, Vec<u8>)> {
         let entry = self.records.get(key);
         match entry {
             Some(entry) => {
                 if entry.deleted {
-                    None
+                    Some((true, Vec::new()))
                 } else {
-                    Some(entry.value)
+                    Some((false, entry.value.to_vec()))
                 }
             }
             None => None,

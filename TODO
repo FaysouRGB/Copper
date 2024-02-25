@@ -1,6 +1,0 @@
-Database:
-    - Load from disk.
-    - Save on disk.
-
-Lib:
-    - Create tests.

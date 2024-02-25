@@ -1,107 +1,67 @@
-use std::fs::File;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::io::Read;
-struct Wal
-{
-    size:usize,
-    max_size:usize,
-    file: File,
-}
+use crate::memtable::Memtable;
+use std::fs::{File, OpenOptions};
+use std::io::{self, BufRead, Write};
+use std::path::Path;
 
-impl Wal{
-
-pub fn init(&self)->Wal
-{
-     let mut wal = File::create("wal.txt")
-   .expect("Error encountered while creating file!");
-
-      let mut data_file = OpenOptions::new()
-        .append(true)
-        .open(self.file)
-        .expect("cannot open file");
-
-    // Write to a file
-    data_file
-        .write(self.max_size.to_string().as_bytes())
-        .expect("write failed");
-
-    let res=Wal
-    {
-       size:0,
-       max_size:10,
-       file:wal,
-
-
-    };
-   return res;
-}
-
-pub fn set(&mut self,key:u8,value:u8)->()
-{
-    let mut data_file = OpenOptions::new()
-        .append(true)
-        .open(self.file)
-        .expect("cannot open file");
-
-    // Write to a file
-    data_file
-        .write(key.to_string().as_bytes())
-        .expect("write failed");
-
-    data_file
-        .write(value.to_string().as_bytes())
-        .expect("write failed");
-
-    data_file
-        .write("0".as_bytes())
-        .expect("write failed");
-
-}
-
-pub fn get(&self,key:u8,value:u8)->(u8,u8)
-{
-    let mut data_file = File::open("data.txt").unwrap();
-
-    // Create an empty mutable string
-    let mut file_content = String::new();
-
-    // Copy contents of file to a mutable string
-    data_file.read_to_string(&mut file_content).unwrap();
-    let mut tmp:Vec<String>=vec![];
-    for word in file_content.lines()
-    {
-        tmp.push(word.to_string());
+pub fn load(wal_path: &Path) -> Result<Memtable, std::io::Error> {
+    let mut memtable = Memtable::new();
+    if !wal_path.exists() || !wal_path.is_file() {
+        File::create(wal_path)?;
     }
-    for i in (0..tmp.len()).rev()
-    {
 
-        if tmp[i].parse::<u8>().unwrap()==key
-        {
-            return (tmp[i].parse::<u8>().unwrap(),tmp[i+1].parse::<u8>().unwrap());
-        }
+    let file = File::open(wal_path)?;
+    let reader = io::BufReader::new(file);
+    let mut lines = reader.lines();
+    while let Some(line) = lines.next() {
+        let line = line?;
+        let key = line.as_bytes();
+
+        let line = lines.next().unwrap()?;
+        let value = line.as_bytes();
+
+        let line = lines.next().unwrap()?;
+        let deleted = line;
+
+        memtable.insert(key, value, deleted == "1");
     }
-    panic!("pair not found");
+
+    Ok(memtable)
 }
 
-pub fn delete(&mut self,key:u8,value:u8)->()
-{
-   let mut data_file = OpenOptions::new()
-        .append(true)
-        .open(self.file)
-        .expect("cannot open file");
+pub fn insert(wal_path: &Path, key: &[u8], value: &[u8], deleted: bool) -> Result<(), io::Error> {
+    let mut file = OpenOptions::new().append(true).open(wal_path)?;
 
-    // Write to a file
-    data_file
-        .write(key.to_string().as_bytes())
-        .expect("write failed");
+    file.write_all(key)?;
+    file.write_all(b"\n")?;
 
-    data_file
-        .write(value.to_string().as_bytes())
-        .expect("write failed");
+    file.write_all(value)?;
+    file.write_all(b"\n")?;
 
-    data_file
-        .write("1".as_bytes())
-        .expect("write failed");
+    let deleted = if deleted { b"1" } else { b"0" };
+    file.write_all(&deleted[..])?;
+    file.write_all(b"\n")?;
+
+    Ok(())
 }
-  }
+
+pub fn save(wal_path: &str, memtable: &Memtable) -> Result<(), io::Error> {
+    let mut file = File::create(wal_path)?;
+
+    for (key, value) in memtable.records.iter() {
+        file.write_all(key)?;
+        file.write_all(b"\n")?;
+
+        file.write_all(&value.value)?;
+        file.write_all(b"\n")?;
+
+        let deleted = if value.deleted { b"1" } else { b"0" };
+        file.write_all(&deleted[..])?;
+        file.write_all(b"\n")?;
+    }
+
+    Ok(())
+}
+
+pub fn delete(wal_path: &Path) -> Result<(), io::Error> {
+    std::fs::remove_file(wal_path)
+}

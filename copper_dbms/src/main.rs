@@ -1,3 +1,13 @@
+pub mod database;
+pub mod errors;
+pub mod interface;
+pub mod lsm_tree;
+pub mod memtable;
+pub mod settings;
+pub mod sql_parser;
+pub mod wal;
+
 fn main() {
-    println!("Hello, Word!");
+    // Start the interface loop.
+    interface::interface_loop();
 }

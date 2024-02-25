@@ -1,66 +1,207 @@
-const MEMTABLE_FLUSH_THRESHOLD: usize = 1024 * 1024 * 100; // Example threshold for flushing memtable (100 MB)
-const MEMTABLE_LOAD_THRESHOLD: usize = 1024 * 1024 * 10; // Example threshold for loading memtable (10 MB)
-
 use crate::memtable::Memtable;
+use crate::{settings, wal};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::BufRead;
-use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::Path;
 
 pub struct LSMTree {
+    pub name: String,
+    pub path: String,
     pub memtable: Memtable,
     pub levels: Vec<Level>,
 }
 
+#[derive(Default)]
 pub struct Level {
     pub sstables: Vec<SSTable>,
 }
 
+#[derive(Default)]
 pub struct SSTable {
-    pub data: BTreeMap<Vec<u8>, Vec<u8>>,
+    pub data: BTreeMap<Vec<u8>, SSTableEntry>,
+}
+
+#[derive(Clone)]
+pub struct SSTableEntry {
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
+    pub deleted: bool,
 }
 
 impl LSMTree {
-    pub fn new() -> LSMTree {
-        LSMTree { memtable: Memtable::new(), levels: Vec::new() }
+    pub fn new(directory: &Path, name: &str) -> Result<LSMTree, io::Error> {
+        // Check if the database directory exists.
+        if !directory.exists() {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "Database directory does not exists."));
+        }
+
+        // Create LSM-Tree directory and WAL.
+        let mut path = directory.join(name);
+        let lsm_path = path.clone().to_str().unwrap().to_string();
+        fs::create_dir_all(&path)?;
+        path.push("wal.dat");
+        File::create(path)?;
+
+        // Create a new LSM-Tree.
+        Ok(LSMTree { name: name.to_string(), memtable: Memtable::new(), levels: Vec::new(), path: lsm_path })
     }
 
-    pub fn insert(&mut self, key: Vec<u8>, value: Vec<u8>) {
-        self.memtable.set(&key, &value);
-        // Check if memtable size exceeds a threshold, then flush to disk
-        if self.memtable.size > MEMTABLE_FLUSH_THRESHOLD {
-            self.flush_memtable();
+    pub fn load(directory: &Path) -> Result<LSMTree, io::Error> {
+        if !directory.exists() {
+            return Err(io::Error::new(io::ErrorKind::NotFound, "LSM-Tree directory does not exists."));
         }
-    }
 
-    pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
-        // Search memtable first
-        if let Some(entry) = self.memtable.get(&key) {
-            return Some(entry.value.clone());
+        // Create the WAL if does not exists.
+        let mut path = directory.to_path_buf();
+        path.push("wal.dat");
+        if !path.exists() || path.is_dir() {
+            File::create(&path)?;
         }
-        // Search SSTables in levels
-        for level in self.levels.iter().rev() {
-            for sstable in level.sstables.iter().rev() {
-                if let Some(value) = sstable.data.get(key) {
-                    return Some(value.clone());
+
+        // Create the LSM-Tree.
+        let mut lsm_tree = LSMTree { name: directory.file_name().unwrap().to_str().unwrap().to_string(), memtable: wal::load(path.as_path())?, levels: Vec::new(), path: directory.to_str().unwrap().to_string() };
+
+        // Load the SSTables.
+        let sstable_path = format!("{}/{}", lsm_tree.path, "sstables/");
+        let sstable_path = Path::new(&sstable_path);
+        if !sstable_path.exists() || sstable_path.is_file() {
+            return Ok(lsm_tree);
+        }
+
+        let entries = sstable_path.read_dir()?.filter(|e| e.is_ok());
+        for entry in entries {
+            let entry = entry?;
+            let level_path = entry.path();
+            if level_path.is_dir() {
+                let level_path = level_path.file_name().unwrap().to_str().unwrap();
+                if level_path.starts_with("level") {
+                    let level_index: usize = level_path.strip_prefix("level_").unwrap().parse().unwrap();
+                    while lsm_tree.levels.len() <= level_index {
+                        lsm_tree.levels.push(Level::default());
+                    }
+
+                    // get all files (sstables) in the level directory, and sort them by name.
+                    let mut sst_entries = entry.path().read_dir()?.filter(|e| e.is_ok()).collect::<Vec<_>>();
+                    sst_entries.sort_by(|a, b| a.as_ref().unwrap().path().file_name().cmp(&b.as_ref().unwrap().path().file_name()));
+                    for file_entry in sst_entries {
+                        let file_entry = file_entry.unwrap();
+                        let file_path = file_entry.path();
+                        if file_path.is_file() {
+                            let file = File::open(file_path)?;
+                            let reader = BufReader::new(file);
+
+                            let mut sstable = SSTable::default();
+                            let mut lines = reader.lines();
+
+                            while let Some(Ok(key)) = lines.next() {
+                                if let Some(Ok(value)) = lines.next() {
+                                    if let Some(Ok(deleted)) = lines.next() {
+                                        let entry = SSTableEntry { key: key.into_bytes(), value: value.into_bytes(), deleted: deleted == "1" };
+                                        sstable.data.insert(entry.key.clone(), entry);
+                                    }
+                                }
+                            }
+
+                            lsm_tree.levels[level_index].sstables.push(sstable);
+                        }
+                    }
                 }
             }
         }
-        None
+
+        // Return the LSM-Tree.
+        Ok(lsm_tree)
     }
 
-    pub fn delete(&mut self, key: &[u8]) {
-        self.memtable.delete(key);
-        if self.memtable.size > MEMTABLE_FLUSH_THRESHOLD {
-            self.flush_memtable();
+    pub fn save(&mut self) -> Result<(), io::Error> {
+        let path = Path::new(&self.path);
+        fs::create_dir_all(path)?;
+
+        let wal_path = format!("{}/{}", self.path, "wal.dat");
+        wal::save(&wal_path, &self.memtable)?;
+
+        // Delete old save.
+        let binding = format!("{}/{}", self.path, "sstables/");
+        let sstable_path = Path::new(&binding);
+        let _ = fs::remove_dir_all(sstable_path);
+
+        // Write new save.
+        fs::create_dir_all(sstable_path)?;
+        for (i, level) in self.levels.iter().enumerate() {
+            fs::create_dir_all(sstable_path.join(format!("level_{}", i)))?;
+            for (j, sstable) in level.sstables.iter().enumerate() {
+                let filename = format!("sstable{}.dat", j);
+                let filepath = sstable_path.join(format!("level_{}/", i)).join(filename);
+                let file = File::create(filepath)?;
+                let mut writer = BufWriter::new(file);
+
+                for (key, entry) in &sstable.data {
+                    writer.write_all(key)?;
+                    writer.write_all(b"\n")?;
+                    writer.write_all(&entry.value)?;
+                    writer.write_all(b"\n")?;
+                    writer.write_all(if entry.deleted { b"1" } else { b"0" })?;
+                    writer.write_all(b"\n")?;
+                }
+            }
         }
+
+        Ok(())
     }
 
-    pub fn flush_memtable(&mut self) {
-        // Create a new SSTable from memtable data
-        let new_sstable = SSTable { data: self.memtable.records.iter().map(|entry| (entry.key.clone(), entry.value.clone())).collect() };
-        // Add the new SSTable to the first level
+    pub fn insert(&mut self, key: &[u8], value: &[u8]) -> Result<(), io::Error> {
+        // Write to WAL.
+        let wal_path = format!("{}/{}", self.path, "wal.dat");
+        wal::insert(Path::new(&wal_path), key, value, false)?;
+
+        // Insert into the memtable.
+        self.memtable.insert(key, value, false);
+
+        // Flush the memtable if it is full.
+        if self.memtable.size > self.memtable.max_size {
+            self.flush_memtable()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, io::Error> {
+        if let Some(entry) = self.memtable.get(key) {
+            return if entry.0 { Ok(None) } else { Ok(Some(entry.1)) };
+        }
+
+        for level in self.levels.iter().rev() {
+            for sstable in level.sstables.iter().rev() {
+                if let Some(entry) = sstable.data.get(key) {
+                    return if entry.deleted { Ok(None) } else { Ok(Some(entry.value.to_vec())) };
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
+    pub fn delete(&mut self, key: &[u8]) -> Result<(), io::Error> {
+        // Write to WAL.
+        let wal_path = format!("{}/{}", self.path, "wal.dat");
+        wal::insert(Path::new(&wal_path), key, b"0", true)?;
+
+        // Insert into the memtable.
+        self.memtable.insert(key, b"0", true);
+
+        // Flush the memtable if it is full.
+        if self.memtable.size > self.memtable.max_size {
+            self.flush_memtable()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn flush_memtable(&mut self) -> Result<(), io::Error> {
+        let new_sstable = SSTable { data: self.memtable.records.iter().map(|(key, entry)| (key.clone(), SSTableEntry { key: entry.key.clone(), value: entry.value.clone(), deleted: entry.deleted })).collect() };
+
         if let Some(first_level) = self.levels.first_mut() {
             first_level.sstables.push(new_sstable);
         } else {
@@ -68,121 +209,47 @@ impl LSMTree {
             level.sstables.push(new_sstable);
             self.levels.push(level);
         }
-        // Clear the memtable
-        self.memtable = Memtable::new();
 
-        // clear the wal
+        self.memtable = Memtable::new();
+        let wal_path = format!("{}/{}", self.path, "wal.dat");
+        wal::delete(Path::new(&wal_path))?;
+        wal::load(Path::new(&wal_path))?;
+        self.compact_tree();
+
+        Ok(())
     }
 
-    pub fn load_on_disk(&mut self) -> io::Result<()> {
-        // Directory containing SSTable files
-        let path = Path::new("./sstables");
-
-        // Iterate over SSTable files
-        for entry in fs::read_dir(path)? {
-            let entry = entry?;
-            let file_path = entry.path();
-
-            // Open file for reading
-            let file = File::open(&file_path)?;
-            let mut reader = BufReader::new(file);
-
-            // Read key-value pairs from file
-            let mut data = BTreeMap::new();
-            loop {
-                let mut key = Vec::new();
-                let mut value = Vec::new();
-
-                // Attempt to read key
-                match reader.read_until(b'\n', &mut key) {
-                    Ok(0) => break, // Reached EOF
-                    Ok(_) => {}     // Continue reading
-                    Err(_) => return Err(io::Error::new(io::ErrorKind::Other, "Failed to read key")),
-                }
-
-                // Attempt to read value
-                match reader.read_until(b'\n', &mut value) {
-                    Ok(0) => break, // Reached EOF
-                    Ok(_) => {}     // Continue reading
-                    Err(_) => return Err(io::Error::new(io::ErrorKind::Other, "Failed to read value")),
-                }
-
-                // Remove trailing newline characters
-                key.pop();
-                value.pop();
-
-                // Insert key-value pair into data map
-                data.insert(key, value);
-            }
-
-            // Determine level and create SSTable
-            let file_name = entry.file_name().into_string().unwrap();
-            let parts: Vec<&str> = file_name.split("_").collect();
-            if parts.len() == 2 {
-                if let (Some(level_index_str), Some(_), Some(sstable_index_str)) = (parts.get(0), parts.get(1)) {
-                    if let (Ok(level_index), Ok(sstable_index)) = (level_index_str.parse::<usize>(), sstable_index_str.parse::<usize>()) {
-                        // Add SSTable to the corresponding level
-                        if level_index < self.levels.len() {
-                            let sstable = SSTable { data };
-                            self.levels[level_index].sstables.push(sstable);
-                        }
+    pub fn compact_tree(&mut self) {
+        for i in 0..self.levels.len() {
+            if self.levels[i].sstables.len() >= settings::MAX_SSTS_PER_LEVEL {
+                // Create a new SSTable
+                let mut new_sstable = SSTable::default();
+                // For each sstable in the level.
+                for sstable in self.levels[i].sstables.iter() {
+                    // Add all key-value pairs.
+                    for (key, entry) in &sstable.data {
+                        new_sstable.data.insert(key.clone(), entry.clone());
                     }
                 }
-            }
-        }
 
-        Ok(())
-    }
-
-    pub fn compact_actual_level(&mut self) {
-        // For simplicity, let's just merge all SSTables into a single one
-        if let Some(actual_level) = self.levels.last_mut() {
-            let mut merged_sstable = SSTable::new();
-            for sstable in actual_level.sstables.iter_mut().rev() {
-                merged_sstable.data.extend(sstable.data.drain());
-            }
-
-            actual_level.sstables.clear();
-            actual_level.sstables.push(merged_sstable);
-        }
-    }
-
-    pub fn save_on_disk(&mut self) -> io::Result<()> {
-        // Directory to store SSTables
-        let path = Path::new("./sstables");
-        fs::create_dir_all(path)?;
-
-        // Save each SSTable to disk
-        for (level_index, level) in self.levels.iter_mut().enumerate() {
-            for (sstable_index, sstable) in level.sstables.iter_mut().enumerate() {
-                let filename = format!("level{}_sstable{}.dat", level_index, sstable_index);
-                let filepath = path.join(filename);
-
-                let file = File::create(filepath)?;
-                let mut writer = BufWriter::new(file);
-
-                // Write each key-value pair to the file
-                for (key, value) in &sstable.data {
-                    writer.write_all(key)?;
-                    writer.write_all(b"\n")?; // Newline separator between key and value
-                    writer.write_all(value)?;
-                    writer.write_all(b"\n")?; // Newline separator between value and next key
+                // Add the new SSTable to the next level.
+                if i + 1 < self.levels.len() {
+                    self.levels[i + 1].sstables.push(new_sstable);
+                } else {
+                    let mut level = Level::default();
+                    level.sstables.push(new_sstable);
+                    self.levels.push(level);
                 }
+
+                // Remove the SSTables from the current level.
+                self.levels[i].sstables.clear();
             }
         }
+    }
 
+    pub fn drop(&self) -> Result<(), io::Error> {
+        let path = Path::new(&self.path);
+        fs::remove_dir_all(path)?;
         Ok(())
-    }
-}
-
-impl Level {
-    pub fn new() -> Level {
-        Level { sstables: Vec::new() }
-    }
-}
-
-impl SSTable {
-    pub fn new() -> SSTable {
-        SSTable { data: BTreeMap::new() }
     }
 }
