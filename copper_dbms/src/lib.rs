@@ -1,4 +1,10 @@
+//! Copper DBMS
+//!
+//! This library is a rust implementation of a database library featuring a sql-like query language.
+//! You can learn more about it on the project's website.
+
 pub mod database;
+pub mod entry;
 pub mod errors;
 pub mod interface;
 pub mod lsm_tree;

@@ -1,14 +1,13 @@
 # Copper DBMS
 
-Copper DBMS is a database management software written in Rust as a S4 project at EPITA. It includes tables, column and an sql-like query language support.
+Copper DBMS is a database management library written in Rust as a S4 project at EPITA. It includes also include a sql-like query language.
 
 # Authors
 
 This project has been done by:
 
-* Fayçal BEGHALIA
+- Fayçal Beghalia (faycal.beghalia@epita.fr)
 
-* Salma BOUBAKKAR
+- Salma Boubakkar (salma.boubakkar@epita.fr)
 
-* Wilfrid WAGON-ZEKOU
-
+- Wilfrid (wilfrid.wangon-zekou@epita.fr)
