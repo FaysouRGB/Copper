@@ -11,12 +11,12 @@ pub mod lsm_tree;
 pub mod memtable;
 pub mod settings;
 pub mod sql_parser;
+pub mod table;
 pub mod wal;
 
 #[cfg(test)]
 mod tests {
     use crate::database::Database;
-
     #[test]
     pub fn database_tests() {
         let mut database = Database::new("my_database").unwrap();

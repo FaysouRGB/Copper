@@ -1,82 +1,103 @@
-use std::{collections::BTreeMap, fmt};
+use std::collections::BTreeMap;
 
-use crate::settings;
+use bloomfilter::Bloom;
 
-#[derive(Default)]
+use crate::entry::Entry;
+
+/// Represents an in-memory table of database entries.
+///
+/// A `Memtable` consists of a map of entries and the total size of all entries.
+///
+/// # Fields
+///
+/// * `entries` - A `HashMap` where the key is a `Vec<u8>` and the value is an `Entry`.
+/// * `size` - The total size of all entries in the `Memtable`.
 pub struct Memtable {
-    pub records: BTreeMap<Vec<u8>, MemtableEntry>,
-    pub size: usize,
-    pub max_size: usize,
-}
-
-pub struct MemtableEntry {
-    pub key: Vec<u8>,
-    pub value: Vec<u8>,
-    pub deleted: bool,
-}
-
-impl MemtableEntry {
-    // Create a new memtable entry.
-    pub fn new(key: &[u8], value: &[u8], deleted: bool) -> MemtableEntry {
-        MemtableEntry { key: key.to_vec(), value: value.to_vec(), deleted }
-    }
-
-    // Get the size of the memtable entry.
-    pub fn get_size(&self) -> usize {
-        self.key.len() + self.value.len() + 1
-    }
+    entries: BTreeMap<Vec<u8>, Entry>,
+    size: usize,
+    bloom_filter: Bloom<Vec<u8>>,
 }
 
 impl Memtable {
-    // Create a new memtable.
-    pub fn new() -> Memtable {
-        Memtable { records: BTreeMap::new(), size: 0, max_size: settings::MEMTABLE_MAX_SIZE }
+    pub fn new() -> Self {
+        Self { entries: BTreeMap::new(), size: 0, bloom_filter: Bloom::new_for_fp_rate(1000, 0.01) }
     }
 
-    // Insert an entry in the memtable, if already existing, then it is updated.
-    pub fn insert(&mut self, key: &[u8], value: &[u8], deleted: bool) {
-        let entry = MemtableEntry::new(key, value, deleted);
-        let entry_size = entry.get_size();
-        let old_entry = self.records.insert(key.to_vec(), entry);
+    /// Inserts an `Entry` into the `Memtable`.
+    ///
+    /// If an entry with the same key already exists in the `Memtable`, it is replaced.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - The `Entry` to be inserted.
+    ///
+    /// # Returns
+    ///
+    /// `true` if an entry with the same key was already present, `false` otherwise.
+    pub fn insert(&mut self, key: &[u8], value: &[u8], deleted: bool) -> bool {
+        // Update the bloom filter on add
+        if !deleted {
+            self.bloom_filter.set(&key.to_vec());
+        }
 
-        match old_entry {
-            Some(old_entry) => {
-                if old_entry.get_size() > entry_size {
-                    self.size -= old_entry.get_size() - entry_size;
+        // Create the entry
+        let entry = Entry::new(key, value, deleted);
+
+        // Insert it into the memtable and get the potential previous value
+        let previous_entry = self.entries.insert(key.to_vec(), entry);
+
+        // Update the size
+        match previous_entry {
+            Some(previous_entry) => {
+                if previous_entry.get_size() > entry.get_size() {
+                    self.size -= previous_entry.get_size() - entry.get_size();
                 } else {
-                    self.size += entry_size - old_entry.get_size();
+                    self.size += entry.get_size() - previous_entry.get_size();
                 }
+                true
             }
-            None => self.size += entry_size,
+            None => {
+                self.size += entry.get_size();
+                false
+            }
         }
     }
 
-    // Get the value associated with the key, if it does not exists, return None.
-    pub fn get(&self, key: &[u8]) -> Option<(bool, Vec<u8>)> {
-        let entry = self.records.get(key);
+    /// Returns a reference to the `Entry` for a given key, if it exists and is not marked as deleted.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - A byte slice that holds the key.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` which is `Some` if an entry with the given key exists and is not marked as deleted, and `None` otherwise.
+    pub fn get(&self, key: &[u8]) -> Option<&Entry> {
+        // Check the bloom filter
+        if !self.bloom_filter.check(&key.to_vec()) {
+            return None;
+        }
+
+        // Get the entry
+        let entry = self.entries.get(key);
         match entry {
             Some(entry) => {
                 if entry.deleted {
-                    Some((true, Vec::new()))
+                    None
                 } else {
-                    Some((false, entry.value.to_vec()))
+                    Some(entry)
                 }
             }
             None => None,
         }
     }
-}
 
-impl fmt::Display for Memtable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Memtable - {}B / {}B ({}%) {{", self.size, self.max_size, self.size / self.max_size * 100)?;
-        for (i, entry) in self.records.iter().enumerate() {
-            let key_string: String = entry.1.key.iter().map(|x| char::from(*x)).collect();
-            let value_string: String = entry.1.value.iter().map(|x| char::from(*x)).collect();
-            writeln!(f, "\t{}: {:?} -> {:?} ({})", i, key_string, value_string, if !entry.1.deleted { "Alive" } else { "Dead" })?;
-        }
-
-        writeln!(f, "}}")?;
-        Ok(())
+    /// Returns the total size of all entries in the `Memtable`.
+    ///
+    /// # Returns
+    ///
+    /// The total size of all entries in the `Memtable`.
+    pub fn get_size(&self) -> usize {
+        self.size
     }
 }
