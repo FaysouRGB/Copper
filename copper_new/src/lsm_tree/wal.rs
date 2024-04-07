@@ -18,6 +18,17 @@ impl From<std::io::Error> for WalError {
     }
 }
 
+/// Writes an entry to the Write-Ahead Log (WAL).
+///
+/// # Arguments
+///
+/// * `table_path` - A reference to the path of the table.
+/// * `entry` - A reference to the entry to be written.
+///
+/// The function opens the WAL file in append mode,
+/// writes the key and value of the entry to the file,
+/// writes a byte that indicates whether the entry is deleted,
+/// and writes a newline character.
 pub fn write_to_wal(table_path: &Path, entry: &Entry) -> Result<(), WalError> {
     let wal_path = table_path.join("wal.txt");
     let mut file = OpenOptions::new().create(true).append(true).open(wal_path)?;
@@ -30,6 +41,13 @@ pub fn write_to_wal(table_path: &Path, entry: &Entry) -> Result<(), WalError> {
     Ok(())
 }
 
+/// Clears the Write-Ahead Log (WAL).
+///
+/// # Arguments
+///
+/// * `table_path` - A reference to the path of the table.
+///
+/// The function opens the WAL file in write mode and truncates it.
 pub fn clear_wal(table_path: &Path) -> Result<(), WalError> {
     let wal_path = table_path.join("wal.txt");
     // Clear the file
@@ -38,6 +56,17 @@ pub fn clear_wal(table_path: &Path) -> Result<(), WalError> {
     Ok(())
 }
 
+/// Gets a memtable from the Write-Ahead Log (WAL).
+///
+/// # Arguments
+///
+/// * `table_path` - A reference to the path of the table.
+/// * `columns` - A slice of columns.
+///
+/// The function opens the WAL file in read mode,
+/// reads each line of the file,
+/// splits each line into parts,
+/// and adds each part to the memtable.
 pub fn get_memtable_from_wal(table_path: &Path, columns: &[Column]) -> Result<Memtable, WalError> {
     let wal_path = table_path.join("wal.txt");
     // Open wal file

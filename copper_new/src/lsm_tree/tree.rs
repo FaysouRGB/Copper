@@ -12,6 +12,11 @@ use std::{
     io::Error,
 };
 
+use crate::lsm_tree::log::write_log;
+use crate::lsm_tree::log::Operation;
+
+/// `LsmTree` struct represents a Log-Structured Merge Tree in a database.
+/// It has a path, a `Memtable`, a vector of `Column`s, and a vector of vectors of `SSTable`s.
 pub struct LsmTree {
     path: String,
     memtable: Memtable,
@@ -19,6 +24,8 @@ pub struct LsmTree {
     levels: Vec<Vec<SSTable>>,
 }
 
+/// `Value` enum represents a value in a database entry.
+/// It can be an integer, a boolean, or a string.
 pub enum Value {
     Int(i32),
     Bool(bool),
@@ -27,6 +34,18 @@ pub enum Value {
 }
 
 impl LsmTree {
+    /// Creates a new `LsmTree` with the given path and columns.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A string that specifies the path of the database.
+    /// * `columns` - A vector of `Column`s that specifies the columns of the database.
+    ///
+    /// The function creates the directories for the database and the SSTables,
+    /// clears the Write-Ahead Log (WAL) file and the config file,
+    /// and creates a new config file with the column names and data types.
+    ///
+    /// The function panics if no columns are provided.
     pub fn new(path: String, columns: Vec<Column>) -> Self {
         // Create the directory for the database
         let _ = std::fs::create_dir_all(&path);
@@ -51,10 +70,14 @@ impl LsmTree {
 
         // Create the wal
         let _ = fs::File::create(format!("{}/wal.txt", path));
-
+        write_log(path.as_ref(), Operation::Creation);
         Self { path, memtable: Memtable::new(), columns, levels: Vec::new() }
     }
 
+    /// Load an LSM Tree from a given path.
+    /// Reads the configuration file to get column names and data types,
+    /// loads the memtable from the Write-Ahead Log (WAL) if it exists,
+    /// and loads the SSTables from disk.
     pub fn load(path: String) -> Result<Self, Error> {
         // Read the config file to get the column names and data types
         let config_path = format!("{}/config.txt", path);
@@ -107,10 +130,13 @@ impl LsmTree {
             levels.push(level);
             i += 1;
         }
-
+        write_log(path.as_ref(), Operation::Load);
         Ok(Self { path, memtable, columns, levels })
     }
 
+    /// Insert a key-value pair into the LSM Tree.
+    /// Checks if the values respect the columns, then inserts the key-value pair into the memtable.
+    /// If the memtable is full, it flushes it to an SSTable.
     pub fn insert(&mut self, key: &[u8], values: &[Vec<u8>]) -> Result<(), Error> {
         // Check that the values respects the columns
         if values.len() != self.columns.len() {
@@ -135,10 +161,15 @@ impl LsmTree {
             self.flush()?;
         }
 
+        write_log(self.path.as_ref(), Operation::Insertion(key.to_vec(), value));
+
         Ok(())
     }
 
+    /// Retrieve a value associated with a given key from the LSM Tree.
+    /// First checks the memtable, then each level of SSTables.
     pub fn get(&self, key: &[u8]) -> Result<Option<Vec<u8>>, Error> {
+        write_log(self.path.as_ref(), Operation::Get(key.to_vec()));
         // Check the memtable first
         if let Some(entry) = self.memtable.get(key) {
             if entry.is_deleted() {
@@ -161,13 +192,14 @@ impl LsmTree {
         Ok(None)
     }
 
+    /// Delete a key-value pair from the LSM Tree.
+    /// Inserts a tombstone value into the memtable.
+    /// If the memtable is full, it flushes it to an SSTable.
     pub fn delete(&mut self, key: &[u8]) -> Result<bool, Error> {
         // Insert a tombstone value into the memtable
         let result = self.memtable.insert(key, &[], true);
         let mut value = Vec::new();
-        for i in 0..(self.columns.len() - 1) {
-            value.push(b'|');
-        }
+        value.resize(self.columns.len() - 1, b'|');
         let _ = wal::write_to_wal(self.path.as_ref(), &Entry::new(key, &value, true));
 
         // If the memtable is full, flush it to an SSTable
@@ -175,9 +207,17 @@ impl LsmTree {
             self.flush()?;
         }
 
+        write_log(self.path.as_ref(), Operation::Deletion(key.to_vec()));
+
         Ok(result)
     }
 
+    /// Flush the memtable to an SSTable and clear the memtable.
+    /// Creates a new SSTable and writes the contents of the memtable to it.
+    /// Adds the new SSTable to the first level.
+    /// Clears the memtable and the sst folder.
+    /// Writes all levels to disk.
+    /// Compacts the levels.
     pub fn flush(&mut self) -> Result<(), Error> {
         // Create a new SSTable and write the contents of the memtable to it
         let sstable = SSTable::from_memtable(&self.memtable);
@@ -206,12 +246,17 @@ impl LsmTree {
             }
         }
 
+        write_log(self.path.as_ref(), Operation::Flush);
+
         // compact the levels
         self.compact()?;
 
         Ok(())
     }
 
+    /// Compact the levels of the LSM Tree.
+    /// For each level, if there are more than 2 SSTables, merges them,
+    /// pushes them to the next level and removes them from the current level.
     pub fn compact(&mut self) -> Result<(), Error> {
         // For each level, check if there is more than 2 ss tables
         // If so, merge them, push them to the next level and remove them from the current level
@@ -236,9 +281,14 @@ impl LsmTree {
             }
         }
 
+        write_log(self.path.as_ref(), Operation::Compact);
+
         Ok(())
     }
 
+    /// Get a range of entries from the LSM Tree.
+    /// Gets all entries from the memtable and the SSTables that satisfy a given predicate.
+    /// Only keeps non-deleted entries.
     pub fn get_range<F>(&self, predicate: F) -> Result<Vec<Vec<u8>>, Error>
     where
         F: Fn(&Entry) -> bool,
@@ -275,9 +325,13 @@ impl LsmTree {
             }
         }
 
+        write_log(self.path.as_ref(), Operation::GetRange);
+
         Ok(result)
     }
 
+    /// Get the total size of the LSM Tree.
+    /// Adds the size of the memtable and the size of each SSTable in each level.
     pub fn size(&self) -> usize {
         let mut total_size = 0;
 
@@ -294,6 +348,8 @@ impl LsmTree {
         total_size
     }
 
+    /// Clear the LSM Tree.
+    /// Clears the memtable and each SSTable in each level.
     pub fn clear(&mut self) -> Result<(), Error> {
         // Clear the memtable
         self.memtable.clear();
@@ -305,9 +361,13 @@ impl LsmTree {
             }
         }
 
+        write_log(self.path.as_ref(), Operation::Clear);
+
         Ok(())
     }
 
+    /// Decode a byte slice into a HashMap.
+    /// Splits the byte slice into values and decodes each value according to its data type.
     pub fn decode(&self, data: &[u8]) -> HashMap<String, Value> {
         let mut map = HashMap::new();
         let values: Vec<&[u8]> = data.split(|b| *b == b'|').collect();
@@ -322,17 +382,23 @@ impl LsmTree {
             map.insert(column.get_name().to_string(), value);
         }
 
+        write_log(self.path.as_ref(), Operation::Decode(data.to_vec()));
+
         map
     }
 }
 
 impl Debug for LsmTree {
+    /// Formats the `LsmTree` for printing.
+    /// Includes the path, memtable, columns, and levels in the output.
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LsmTree").field("path", &self.path).field("memtable", &self.memtable).field("columns", &self.columns).field("levels", &self.levels).finish()
     }
 }
 
 impl Debug for Value {
+    /// Formats the `Value` for printing.
+    /// Matches on the `Value` variant and writes the corresponding value to the formatter.
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Value::Int(value) => write!(f, "{}", value),

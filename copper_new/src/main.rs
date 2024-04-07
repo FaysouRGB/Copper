@@ -3,7 +3,6 @@ use std::vec;
 use copper::lsm_tree::{
     self,
     column::Column,
-    get_result,
     tree::{self, LsmTree, Value},
 };
 
@@ -108,7 +107,7 @@ fn add_book(shop: &mut LsmTree) {
     println!("Book added successfully!");
     let mut table = Table::new();
     table.add_row(row!["Name", "Author", "Year", "In Stock"]);
-    table.add_row(row![name, author, year, false]);
+    table.add_row(row![name, author, year, true]);
     table.printstd();
 }
 
@@ -187,7 +186,7 @@ fn list_books(shop: &LsmTree) {
     table.printstd();
 }
 
-fn execute_sql_query(shop: &LsmTree) {}
+fn execute_sql_query(_shop: &LsmTree) {}
 
 fn create_shop() -> LsmTree {
     println!("Enter the name of the shop:");
@@ -207,7 +206,7 @@ fn create_shop() -> LsmTree {
     shop
 }
 
-fn test() {
+fn _test() {
     println!("Testing copper.");
 
     // Delete the previous LSM tree.

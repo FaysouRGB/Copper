@@ -13,6 +13,11 @@ pub struct SSTable {
 }
 
 impl SSTable {
+    /// Returns the value of the entry with the given key if it exists and the bloom filter indicates that it might be in the `SSTable`.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - A byte slice that holds the key of the entry.
     pub fn get(&self, key: &[u8]) -> Option<Vec<u8>> {
         // Check the Bloom filter first
         if !self.bloom_filter.check(&key.to_vec()) {
@@ -23,6 +28,14 @@ impl SSTable {
         self.data.get(key).map(|entry| entry.get_value().to_vec())
     }
 
+    /// Creates a new `SSTable` from a `Memtable`.
+    ///
+    /// # Arguments
+    ///
+    /// * `memtable` - A reference to a `Memtable` that holds the entries to be included in the `SSTable`.
+    ///
+    /// The function creates a new bloom filter and a new `BTreeMap` of entries,
+    /// and inserts all entries from the `Memtable` into the `BTreeMap` and the bloom filter.
     pub fn from_memtable(memtable: &Memtable) -> Self {
         let mut bloom_filter = Bloom::new_for_fp_rate(1000, 0.01);
         let mut data = BTreeMap::new();
@@ -35,6 +48,14 @@ impl SSTable {
         Self { data, bloom_filter }
     }
 
+    /// Saves the `SSTable` to a file on disk.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A string slice that specifies the path of the file.
+    ///
+    /// The function creates a new file at the specified path,
+    /// and writes the number of entries in the `SSTable` and each key-value pair to the file.
     pub fn save_to_disk(&self, path: &str) -> Result<(), std::io::Error> {
         let file = std::fs::File::create(path)?;
         let mut writer = std::io::BufWriter::new(file);
@@ -55,10 +76,27 @@ impl SSTable {
         Ok(())
     }
 
+    /// Saves the `SSTable` to a file on disk.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A string slice that specifies the path of the file.
+    ///
+    /// The function creates a new file at the specified path,
+    /// and writes the number of entries in the `SSTable` and each key-value pair to the file.
     pub fn get_all_entries(&self) -> Vec<Entry> {
         self.data.iter().map(|(key, entry)| Entry::new(key, entry.get_value(), entry.is_deleted())).collect()
     }
 
+    /// Loads an `SSTable` from a file on disk.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A string slice that specifies the path of the file.
+    ///
+    /// The function opens the file at the specified path,
+    /// reads the number of entries in the `SSTable` and each key-value pair from the file,
+    /// and creates a new `SSTable` with the read entries and a new bloom filter.
     pub fn load_from_disk(path: &str) -> Result<Self, std::io::Error> {
         let file = std::fs::File::open(path)?;
         let mut reader = std::io::BufReader::new(file);
@@ -101,6 +139,7 @@ impl SSTable {
         Ok(Self { data, bloom_filter })
     }
 
+    /// Returns the size of the `SSTable`, which is the sum of the lengths of all keys, values, and tombstones.
     pub fn get_size(&self) -> usize {
         let mut sum = 0;
         for (key, entry) in &self.data {
@@ -109,6 +148,14 @@ impl SSTable {
         sum
     }
 
+    /// Compacts a level of `SSTable`s into a single `SSTable`.
+    ///
+    /// # Arguments
+    ///
+    /// * `level` - A reference to a vector of `SSTable`s that represents the level to be compacted.
+    ///
+    /// The function creates a new `SSTable` and a new bloom filter,
+    /// and inserts all entries from the `SSTable`s in the level into the `SSTable` and the bloom filter.
     pub fn compact(level: &Vec<Self>) -> Self {
         let mut data = BTreeMap::new();
         let mut bloom_filter = Bloom::new_for_fp_rate(1000, 0.01);
@@ -123,6 +170,14 @@ impl SSTable {
         Self { data, bloom_filter }
     }
 
+    /// Returns a range of entries in the `SSTable` from the start key to the end key, inclusive.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - A byte slice that holds the start key of the range.
+    /// * `end` - A byte slice that holds the end key of the range.
+    ///
+    /// The function does not return deleted entries.
     pub fn get_range(&self, start: &[u8], end: &[u8]) -> Vec<Entry> {
         let start_key = start.to_vec();
         let end_key = end.to_vec();
@@ -130,11 +185,20 @@ impl SSTable {
         self.data.range(start_key..=end_key).filter_map(|(key, entry)| if entry.is_deleted() { None } else { Some(Entry::new(key, entry.get_value(), entry.is_deleted())) }).collect()
     }
 
+    /// Clears the `SSTable`, removing all entries and clearing the bloom filter.
     pub fn clear(&mut self) {
         self.data.clear();
         self.bloom_filter.clear();
     }
 
+    /// Merges multiple `SSTable`s into a single `SSTable`.
+    ///
+    /// # Arguments
+    ///
+    /// * `sstables` - A slice of `SSTable`s that are to be merged.
+    ///
+    /// The function creates a new `SSTable` and a new bloom filter,
+    /// and inserts all entries from the `SSTable`s into the `SSTable` and the bloom filter.
     pub fn merge(sstables: &[SSTable]) -> SSTable {
         let mut data = BTreeMap::new();
         let mut bloom_filter = Bloom::new_for_fp_rate(1000, 0.01);
@@ -151,6 +215,7 @@ impl SSTable {
 }
 
 impl Debug for SSTable {
+    /// Formats the `SSTable` for printing.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SSTable(data: {:?})", self.data)
     }
