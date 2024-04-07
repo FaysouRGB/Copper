@@ -1,6 +1,6 @@
 use crate::errors;
-use crate::lsm_tree::LSMTree;
 use crate::settings;
+use crate::table::Table;
 use std::collections::HashMap;
 use std::io;
 use std::{fs, path::Path};
@@ -8,7 +8,7 @@ use std::{fs, path::Path};
 #[derive(Default)]
 pub struct Database {
     pub name: String,
-    pub tables: HashMap<String, LSMTree>,
+    pub tables: HashMap<String, Table>,
 }
 
 impl Database {

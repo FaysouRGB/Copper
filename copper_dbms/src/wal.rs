@@ -143,7 +143,7 @@ pub fn get_memtable_from_wal(table_path: &Path) -> Result<Memtable, std::io::Err
             // Get the fields
             let key = entry_lines[0].clone();
             let value = entry_lines[1].clone();
-            let deleted = entry_lines[2].parse().unwrap_or(false);
+            let deleted = entry_lines[2].trim().parse::<u8>().unwrap() != 0;
 
             // Insert into the memtable
             memtable.insert(key.as_bytes(), value.as_bytes(), deleted);

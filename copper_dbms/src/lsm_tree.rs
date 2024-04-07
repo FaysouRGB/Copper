@@ -5,7 +5,7 @@ use std::{
 
 use bloomfilter::Bloom;
 
-use crate::{entry::Entry, memtable::Memtable};
+use crate::{entry::Entry, memtable::Memtable, table::Table};
 
 mod old {
     use crate::memtable::Memtable;
@@ -268,36 +268,4 @@ mod old {
 pub struct Database {
     pub path: PathBuf,
     pub tables: Vec<Table>,
-}
-
-pub struct Table {
-    pub name: String,
-    pub memtable: Memtable,
-    pub columns: Vec<Column>,
-    pub levels: Vec<Vec<SSTable>>,
-}
-
-pub struct Column {
-    pub name: String,
-    pub data_type: DataType,
-}
-
-pub enum DataType {
-    Int,
-    String,
-    Bool,
-}
-
-impl Table {
-    pub fn new(database_path: &Path, name: String, columns: Vec<Column>) -> Result<Self, std::io::Error> {
-        // Create the table
-        let mut table = Table { name, memtable: Memtable::new(), columns, levels: vec![] };
-
-        Ok(table)
-    }
-}
-
-pub struct SSTable {
-    entries: BTreeMap<Vec<u8>, Entry>,
-    bloom_filter: Bloom<Vec<u8>>,
 }
