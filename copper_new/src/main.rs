@@ -70,7 +70,7 @@ fn main() {
             "1" => add_book(&mut selected_shop),
             "2" => remove_book(&mut selected_shop),
             "3" => list_books(&selected_shop),
-            "4" => execute_sql_query(&selected_shop),
+            "4" => execute_sql_query(&mut selected_shop),
             "5" => println!("{:#?}", selected_shop),
             "6" => break,
             _ => println!("Invalid option!"),
@@ -186,7 +186,120 @@ fn list_books(shop: &LsmTree) {
     table.printstd();
 }
 
-fn execute_sql_query(_shop: &LsmTree) {}
+fn execute_sql_query(_shop: &mut LsmTree) {
+    println!("Enter the SQL query:");
+    let mut query = String::new();
+    std::io::stdin().read_line(&mut query).unwrap();
+    let query = query.trim();
+
+    // Little sql parser with insert, select and delete. Since it is a simple parser, it is case insensitive and we only work on one table so no need for into
+
+    if query.starts_with("insert") {
+        let values: Vec<&str> = query.split_whitespace().skip(1).collect();
+        if values.len() != 4 {
+            println!("Invalid insert query!");
+        } else {
+            let name = values[0];
+            let author = values[1];
+            let year: i32 = values[2].parse().unwrap();
+            let in_stock: bool = values[3].parse().unwrap();
+            let key = name.as_bytes();
+            let values = vec![name.as_bytes().to_vec(), author.as_bytes().to_vec(), year.to_ne_bytes().to_vec(), if in_stock { b"\x01".to_vec() } else { b"\x00".to_vec() }];
+            let _ = _shop.insert(key, &values);
+            println!("Book added successfully!");
+        }
+    } else if query.starts_with("select") {
+        // Check which rows are selected
+        let rows: Vec<&str> = query.split_whitespace().skip(1).collect();
+        if rows.is_empty() {
+            println!("Invalid select query!");
+        } else {
+            let mut table = Table::new();
+            // Set the table column based on the selected column of the select query
+            let mut header = vec![];
+            for row in rows {
+                match row {
+                    "name" => {
+                        header.push("Name");
+                    }
+                    "author" => {
+                        header.push("Author");
+                    }
+                    "year" => {
+                        header.push("Year");
+                    }
+                    "in_stock" => {
+                        header.push("In Stock");
+                    }
+                    _ => {
+                        println!("Invalid select query!");
+                        return;
+                    }
+                }
+            }
+            header.sort();
+            // Add each cell of the header
+            let mut row: Vec<Cell> = vec![];
+            for column in &header {
+                row.push(Cell::new(column));
+            }
+            table.add_row(Row::new(row));
+
+            // Get all book with get_range returning always true for the predicate
+            let books = _shop.get_range(|_| true).unwrap();
+            for book in books {
+                let decode = _shop.decode(&book);
+                let mut row: Vec<Cell> = vec![];
+                for column in &header {
+                    let value = decode.get(&column.to_string()).unwrap();
+                    match value {
+                        Value::Text(value) => {
+                            row.push(Cell::new(value));
+                        }
+                        Value::Int(value) => {
+                            row.push(Cell::new(&value.to_string()));
+                        }
+                        Value::Bool(value) => {
+                            row.push(Cell::new(&value.to_string()));
+                        }
+                    }
+                }
+                table.add_row(Row::new(row));
+            }
+
+            table.printstd();
+        }
+    } else if query.starts_with("delete") {
+        let name = query.split_whitespace().nth(1);
+        if let Some(name) = name {
+            let key = name.as_bytes();
+            let result = _shop.delete(key).unwrap();
+            if result {
+                println!("Book removed successfully!");
+            } else {
+                println!("Book not found!");
+            }
+        } else {
+            println!("Invalid delete query!");
+        }
+    } else if query.starts_with("update") {
+        let values: Vec<&str> = query.split_whitespace().skip(1).collect();
+        if values.len() != 4 {
+            println!("Invalid update query!");
+        } else {
+            let name = values[0];
+            let author = values[1];
+            let year: i32 = values[2].parse().unwrap();
+            let in_stock: bool = values[3].parse().unwrap();
+            let key = name.as_bytes();
+            let values = vec![name.as_bytes().to_vec(), author.as_bytes().to_vec(), year.to_ne_bytes().to_vec(), if in_stock { b"\x01".to_vec() } else { b"\x00".to_vec() }];
+            let _ = _shop.insert(key, &values);
+            println!("Book updated successfully!");
+        }
+    } else {
+        println!("Invalid query!");
+    }
+}
 
 fn create_shop() -> LsmTree {
     println!("Enter the name of the shop:");

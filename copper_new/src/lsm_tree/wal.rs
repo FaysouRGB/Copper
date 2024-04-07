@@ -88,6 +88,9 @@ pub fn get_memtable_from_wal(table_path: &Path, columns: &[Column]) -> Result<Me
         for i in 0..columns.len() {
             let value_part = parts[i + 1].as_bytes().to_vec();
             value.extend(value_part);
+            if i < columns.len() - 1 {
+                value.push(b'|');
+            }
         }
 
         // Parse the last part as a boolean

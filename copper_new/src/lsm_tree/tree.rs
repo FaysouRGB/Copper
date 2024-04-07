@@ -371,7 +371,6 @@ impl LsmTree {
     pub fn decode(&self, data: &[u8]) -> HashMap<String, Value> {
         let mut map = HashMap::new();
         let values: Vec<&[u8]> = data.split(|b| *b == b'|').collect();
-
         for (i, column) in self.columns.iter().enumerate() {
             let value = match column.get_data_type() {
                 DataType::Int => Value::Int(i32::from_ne_bytes(values[i].try_into().unwrap())),
