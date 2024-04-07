@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/output.css">
+    <title>Copper - Home</title>
+</head>
+<body>
+    <nav class="sticky top-0 left-0 bg-white h-16 flex justify-between px-16 py-4">
+        <h1 class="font-bold text-2xl">COPPER</h1>
+        <div class="flex space-x-4">
+            <a href="index.html">Home</a>
+            <a href="doc/copper/all.html">Documentation</a>
+            <a href="about.html">About</a>
+            <a href="https://github.com/FaysouRGB/copper_dbms">Repo</a>
+        </div>
+    </nav>
+    <div class="h-screen px-32 flex items-center" style="background-image: url('images/hero.jpg');">
+        <div>
+            <h1 class="text-white text-6xl pb-4">Meet Copper</h1>
+            <p class="text-white">A small rust database library</p>
+        </div>
+    </div>
+    <div>
+        <div class="px-32 py-32">
+            <h1 class="text-center text-2xl text-bold pb-4">What is copper ?</h1>
+            <p class="text-center w-[800px] m-auto">This Rust library, named Copper, provides an efficient implementation of a Log-Structured Merge-Tree (LSM Tree), a data structure commonly used in storage systems for write-heavy workloads.
+
+                The LSM Tree in Copper is designed to provide efficient write and read operations by maintaining data in different levels of sorted runs and periodically compacting these runs to maintain performance.
+                Copper is a great choice for developers who need a robust and efficient LSM Tree implementation in Rust.</p>
+        </div>
+
+        <div class="px-32 pb-32">
+            <h1 class="text-center text-2xl text-bold pb-4">Features</h1>
+            <p class="text-center w-[800px] m-auto">Implements a Log-Structured Merge-Tree (LSM Tree), a data structure commonly used in storage systems for write-heavy workloads.</br></br>
+                Provides efficient write and read operations.</br></br>
+                Maintains data in different levels of sorted runs.</br></br>
+                Periodically compacts these runs to maintain performance.</br></br>
+                Detailed implementation, including the data structures and algorithms used, can be found within the module.</p>
+        </div>
+
+        <div class="px-32 pb-32 flex flex-col justify-center items-center">
+            <h1 class="text-center text-2xl text-bold pb-4">Try it now!</h1>
+            <a href="https://github.com/FaysouRGB/copper_dbms" class="px-4 py-2 bg-green-500 text-white m-auto">Go to Github</a>
+        </div>
+    </div>
+    <footer>
+        <div class="bg-gray-950 text-white p-4 text-right px-32 py-4 flex justify-between">
+            <div class="text-left">
+                <p class="text-2xl">Copper</p>
+                <p class="">Created by RustReq</p>
+            </div>
+            <div class="flex flex-col justify-end">
+                <a href="index.html">Home</a>
+                <a href="doc/copper/all.html">Documentation</a>
+                <a href="about.html">About</a>
+                <a href="https://github.com/FaysouRGB/copper_dbms">Repo</a>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

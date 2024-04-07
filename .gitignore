@@ -17,3 +17,7 @@ debug_lsm_tree/
 
 # Visual Studio Code workspace's settings
 .vscode/
+
+# Website node module
+node_modules/
+package-lock.json

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["WalError"],"fn":["clear_wal","get_memtable_from_wal","write_to_wal"]};

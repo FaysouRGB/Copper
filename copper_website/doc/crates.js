@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["bit_vec","bloomfilter","cfg_if","chrono","copper","csv","csv_core","dirs_next","dirs_sys_next","encode_unicode","getrandom","iana_time_zone","is_terminal","itoa","lazy_static","libc","memchr","num_traits","prettytable","ryu","serde","siphasher","term","unicode_width"];
