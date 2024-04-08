@@ -18,8 +18,8 @@ pub enum DataType {
 
 impl Column {
     /// Creates a new `Column` with the given `name` and `data_type`.
-    pub fn new(name: String, data_type: DataType) -> Self {
-        Self { name, data_type }
+    pub fn new(name: &str, data_type: DataType) -> Self {
+        Self { name: name.to_string(), data_type }
     }
 
     /// Returns the name of the `Column`.

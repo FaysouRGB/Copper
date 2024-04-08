@@ -86,7 +86,7 @@ impl LsmTree {
             .lines()
             .map(|line| {
                 let parts: Vec<&str> = line.split('|').collect();
-                Column::new(parts[0].to_string(), DataType::from_char(parts[1].chars().next().unwrap()))
+                Column::new(parts[0], DataType::from_char(parts[1].chars().next().unwrap()))
             })
             .collect();
 

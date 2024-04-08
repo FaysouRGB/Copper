@@ -308,7 +308,7 @@ fn create_shop() -> LsmTree {
     let shop_name = shop_name.trim();
 
     // Create the shop
-    let columns = vec![Column::new("Name".to_string(), lsm_tree::column::DataType::Text), Column::new("Author".to_string(), lsm_tree::column::DataType::Text), Column::new("Year".to_string(), lsm_tree::column::DataType::Int), Column::new("In Stock".to_string(), lsm_tree::column::DataType::Bool)];
+    let columns = vec![Column::new("Name", lsm_tree::column::DataType::Text), Column::new("Author", lsm_tree::column::DataType::Text), Column::new("Year", lsm_tree::column::DataType::Int), Column::new("In Stock", lsm_tree::column::DataType::Bool)];
 
     // Shop path
     let shop_path = format!("shops/{}", shop_name);
@@ -326,7 +326,7 @@ fn _test() {
     let _ = std::fs::remove_dir_all("debug_lsm_tree");
 
     // Create a LSM tree.
-    let columns = vec![Column::new("Name".to_string(), lsm_tree::column::DataType::Text), Column::new("Age".to_string(), lsm_tree::column::DataType::Int)];
+    let columns = vec![Column::new("Name", lsm_tree::column::DataType::Text), Column::new("Age", lsm_tree::column::DataType::Int)];
     let mut lsm_tree = tree::LsmTree::new("debug_lsm_tree".to_string(), columns);
 
     // Print the LSM tree.
