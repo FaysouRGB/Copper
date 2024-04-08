@@ -76,7 +76,7 @@ You can access the documentation by typing:
 cargo doc
 ```
 
-Don't forget to check our website for more information.
+Don't forget to check our [website](website/index.html) for more information.
 
 # Authors
 
