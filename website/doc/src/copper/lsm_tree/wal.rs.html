@@ -99,6 +99,9 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fs::OpenOptions,
     io::{BufRead, BufReader, Write},
@@ -189,6 +192,9 @@
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..columns.len() {
             <span class="kw">let </span>value_part = parts[i + <span class="number">1</span>].as_bytes().to_vec();
             value.extend(value_part);
+            <span class="kw">if </span>i &lt; columns.len() - <span class="number">1 </span>{
+                value.push(<span class="string">b'|'</span>);
+            }
         }
 
         <span class="comment">// Parse the last part as a boolean

@@ -407,7 +407,6 @@
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{
     column::{Column, DataType},
     entry::Entry,
@@ -496,7 +495,7 @@
             .lines()
             .map(|line| {
                 <span class="kw">let </span>parts: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = line.split(<span class="string">'|'</span>).collect();
-                Column::new(parts[<span class="number">0</span>].to_string(), DataType::from_char(parts[<span class="number">1</span>].chars().next().unwrap()))
+                Column::new(parts[<span class="number">0</span>], DataType::from_char(parts[<span class="number">1</span>].chars().next().unwrap()))
             })
             .collect();
 
@@ -781,7 +780,6 @@
     </span><span class="kw">pub fn </span>decode(<span class="kw-2">&amp;</span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; HashMap&lt;String, Value&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>map = HashMap::new();
         <span class="kw">let </span>values: Vec&lt;<span class="kw-2">&amp;</span>[u8]&gt; = data.split(|b| <span class="kw-2">*</span>b == <span class="string">b'|'</span>).collect();
-
         <span class="kw">for </span>(i, column) <span class="kw">in </span><span class="self">self</span>.columns.iter().enumerate() {
             <span class="kw">let </span>value = <span class="kw">match </span>column.get_data_type() {
                 DataType::Int =&gt; Value::Int(i32::from_ne_bytes(values[i].try_into().unwrap())),

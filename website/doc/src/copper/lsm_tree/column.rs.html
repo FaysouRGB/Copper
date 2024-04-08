@@ -91,8 +91,8 @@
 
 <span class="kw">impl </span>Column {
     <span class="doccomment">/// Creates a new `Column` with the given `name` and `data_type`.
-    </span><span class="kw">pub fn </span>new(name: String, data_type: DataType) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ name, data_type }
+    </span><span class="kw">pub fn </span>new(name: <span class="kw-2">&amp;</span>str, data_type: DataType) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ name: name.to_string(), data_type }
     }
 
     <span class="doccomment">/// Returns the name of the `Column`.

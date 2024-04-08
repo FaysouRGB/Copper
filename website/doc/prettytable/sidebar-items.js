@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Attr"],"macro":["cell","ptable","row","table"],"mod":["color","csv","format"],"struct":["Cell","ColumnIter","ColumnIterMut","Row","Table","TableSlice"],"trait":["AsTableSlice","Slice"]};
