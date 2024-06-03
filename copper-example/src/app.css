@@ -4,7 +4,7 @@
 
 @font-face {
   font-family: "Rubik";
-  src: url("./rubik.ttf");
+  src: url("/rubik.ttf");
 }
 
 :root {

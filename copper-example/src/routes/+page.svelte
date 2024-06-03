@@ -52,7 +52,7 @@
       <tr>
         <td
           ><div class="flex items-center">
-            <img src="./copper.png" alt="" class="h-8 w-8 inline mr-2" />Copper
+            <img src="/copper.png" alt="" class="h-8 w-8 inline mr-2" />Copper
           </div></td
         >
         <td>Database manager written in Rust, supports some SQL Queries.</td>
@@ -60,7 +60,7 @@
       <tr>
         <td
           ><div class="flex items-center">
-            <img src="./svelte.svg" alt="" class="h-8 w-8 inline mr-2" />Svelte
+            <img src="/svelte.svg" alt="" class="h-8 w-8 inline mr-2" />Svelte
           </div></td
         >
         <td
@@ -70,7 +70,7 @@
       <tr>
         <td
           ><div class="flex items-center">
-            <img src="./tauri.svg" alt="" class="h-8 w-8 inline mr-2" />Tauri
+            <img src="/tauri.svg" alt="" class="h-8 w-8 inline mr-2" />Tauri
           </div></td
         >
         <td
@@ -82,7 +82,7 @@
         <td
           ><div class="flex items-center">
             <img
-              src="./tailwind.svg"
+              src="/tailwind.svg"
               alt=""
               class="h-8 w-8 inline mr-2"
             />Tailwind CSS
@@ -123,7 +123,7 @@
   <div class="menu">
     <div class="flex items-center">
       <img
-        src="./blue_book_3d.png"
+        src="/blue_book_3d.png"
         alt="Blue Book"
         class="h-8 w-8 inline mr-2"
       />
@@ -139,7 +139,7 @@
   </div>
 
   <!--List-->
-  <div class="flex-1 p-4 space-y-4 bg-[url(./wallpaper.png)] bg-cover">
+  <div class="flex-1 p-4 space-y-4 bg-[url(/wallpaper.png)] bg-cover">
     {#each libraries as library, index}
       <div
         class="flex justify-between"
@@ -161,7 +161,7 @@
       <div
         class="h-full w-full flex flex-col space-y-4 justify-center items-center"
       >
-        <img src="./eyes_3d.png" alt="Eyes" class="h-32 w-32" />
+        <img src="/eyes_3d.png" alt="Eyes" class="h-32 w-32" />
         <p class="text-white/50">
           No libraries. Create a library using the "New library" button.
         </p>

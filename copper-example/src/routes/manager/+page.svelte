@@ -161,7 +161,7 @@
   <div class="menu">
     <div class="flex items-center">
       <img
-        src="./blue_book_3d.png"
+        src="/blue_book_3d.png"
         alt="Blue Book"
         class="h-8 w-8 inline mr-2"
       />
@@ -173,7 +173,7 @@
   </div>
 
   <!--List-->
-  <div class="flex-1 space-y-4 bg-[url(./wallpaper.png)] bg-cover">
+  <div class="flex-1 space-y-4 bg-[url(/wallpaper.png)] bg-cover">
     <table>
       <tr>
         <th>Title</th>
